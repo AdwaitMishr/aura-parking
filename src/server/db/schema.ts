@@ -1,4 +1,3 @@
-
 import { sql } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, pgTableCreator, pgEnum, serial, integer } from "drizzle-orm/pg-core";
 export const createTable = pgTableCreator((name) => `aura-parking_${name}`);

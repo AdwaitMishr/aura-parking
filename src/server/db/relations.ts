@@ -1,4 +1,3 @@
-// src/server/db/relations.ts
 import { relations } from "drizzle-orm";
 import { parkingLots, parkingSpots, bookings, user, account, session } from "./schema";
 
