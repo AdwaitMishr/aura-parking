@@ -1,14 +1,50 @@
 
 import { sql } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, pgTableCreator } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, pgTableCreator, pgEnum, serial, integer } from "drizzle-orm/pg-core";
 export const createTable = pgTableCreator((name) => `aura-parking_${name}`);
 
+
+export const userRoleEnum = pgEnum('user_role', ['USER', 'ADMIN']);
+export const spotStatusEnum = pgEnum('spot_status', ['AVAILABLE', 'OCCUPIED', 'RESERVED', 'UNDER_MAINTENANCE']); 
+
+export const parkingLots = createTable('parking_lots', {
+    id: serial('id').primaryKey().notNull(),
+    name: text('name').notNull(),
+    location: text('location'),
+    gridRows: integer('grid_rows').notNull().default(10),
+    gridCols: integer('grid_columns').notNull().default(10),
+    rowSpacing: text('row_spacing'),
+    colSpacing: text('col_spacing'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: "date" }).defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+export const parkingSpots = createTable('parking_spots', {
+    id: serial('id').primaryKey().notNull(),
+    spotNumber: text('spot_number').notNull(),
+    parkingLotId: integer('parking_lot_id').notNull().references(() => parkingLots.id, { onDelete: 'cascade' }),
+    gridRow: integer('grid_row').notNull(),
+    gridCol: integer('grid_column').notNull(),
+    orientation: text('orientation').default('N'),
+    status: spotStatusEnum('status').notNull().default('AVAILABLE'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: "date" }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: "date" }).defaultNow().$onUpdate(() => new Date()),
+});
+
+export const bookings = createTable('bookings', {
+    id: serial('id').primaryKey().notNull(),
+    startTime: timestamp('start_time', { withTimezone: true, mode: "date" }).notNull(),
+    endTime: timestamp('end_time', { withTimezone: true, mode: "date" }).notNull(),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    parkingSpotId: integer('parking_spot_id').notNull().references(() => parkingSpots.id, { onDelete: 'cascade' }),
+});
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
+  role: userRoleEnum("role").default('USER').notNull(),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
@@ -63,3 +99,5 @@ export const verification = pgTable("verification", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+

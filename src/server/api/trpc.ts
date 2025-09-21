@@ -6,12 +6,12 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
-import { db } from "@/server/db";
-
+import { db, user } from "@/server/db";
+import {auth} from "@/lib/auth";
 /**
  * 1. CONTEXT
  *
@@ -25,8 +25,13 @@ import { db } from "@/server/db";
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
+  const sessionData = await auth.api.getSession({
+    headers: opts.headers,
+  })
   return {
     db,
+    session: sessionData?.session ?? null,
+    user: sessionData?.user ?? null,
     ...opts,
   };
 };
@@ -84,7 +89,7 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 
   if (t._config.isDev) {
     // artificial delay in dev
-    const waitMs = Math.floor(Math.random() * 400) + 100;
+    const waitMs = Math.floor(Math.random() * 200) + 100;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
 
@@ -104,3 +109,27 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * are logged in.
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
+
+const enforceUserIsAuthed = t.middleware(({ctx, next}) => {
+  if(!ctx.session || !ctx.user){
+    throw new TRPCError({code: "UNAUTHORIZED"})
+  }
+  return next({
+    ctx:{
+      session: {...ctx.session},
+      user: {...ctx.user},
+    },
+  })
+})
+
+export const protectedProcedure = t.procedure.use(timingMiddleware).use(enforceUserIsAuthed);
+
+export const adminProcedure = protectedProcedure.use((opts) => {
+  if(!(opts.ctx.user.role !== "ADMIN")) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be an admin to perform this action."
+    });
+    }
+    return opts.next(opts);
+})
