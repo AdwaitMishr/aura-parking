@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { mockBookings } from "@/lib/mock-data"
-import type { Booking } from "@/lib/types"
+// TODO: Replace with tRPC queries to fetch booking data from backend
+// import { api } from "@/trpc/react"
 import { Search, MoreHorizontal, X } from "lucide-react"
 import { format } from "date-fns"
 
 export function AdminBookingRecords() {
-  const [bookings, setBookings] = useState<Booking[]>(mockBookings)
+  // TODO: Replace with tRPC query
+  // const { data: bookings = [] } = api.bookings.getAll.useQuery()
+  const [bookings, setBookings] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
 
   // Filter bookings based on search term
@@ -24,10 +26,10 @@ export function AdminBookingRecords() {
   )
 
   const handleCancelBooking = (bookingId: string) => {
-    setBookings(bookings.map((booking) => (booking.id === bookingId ? { ...booking, status: "cancelled" } : booking)))
+    setBookings(bookings.filter((booking: any) => booking.id !== bookingId))
   }
 
-  const getStatusBadge = (status: Booking["status"]) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
         return (

@@ -76,22 +76,68 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /**
+   * Procedure for creating a new parking spot.
+   */
+  createParkingSpot: adminProcedure
+    .input(z.object({
+        parkingLotId: z.number(),
+        spotNumber: z.string().min(1),
+        gridRow: z.number().min(0),
+        gridCol: z.number().min(0),
+        orientation: z.string().default('N'),
+        status: z.enum(spotStatusEnum.enumValues).default('AVAILABLE'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+        const [newSpot] = await ctx.db
+            .insert(parkingSpots)
+            .values({
+                parkingLotId: input.parkingLotId,
+                spotNumber: input.spotNumber,
+                gridRow: input.gridRow,
+                gridCol: input.gridCol,
+                orientation: input.orientation,
+                status: input.status,
+            })
+            .returning();
+        return newSpot;
+    }),
+
+  /**
    * Procedure for updating a parking spot from the "Edit Spot" dialog.
    */
   updateParkingSpot: adminProcedure
     .input(z.object({
         spotId: z.number(),
-        status: z.enum(spotStatusEnum.enumValues),
         spotNumber: z.string().min(1),
-        // Add other fields from your "Edit Spot" form here
+        gridRow: z.number().min(0),
+        gridCol: z.number().min(0),
+        orientation: z.string(),
+        status: z.enum(spotStatusEnum.enumValues),
     }))
     .mutation(async ({ ctx, input }) => {
         await ctx.db
             .update(parkingSpots)
             .set({ 
-                status: input.status,
                 spotNumber: input.spotNumber,
+                gridRow: input.gridRow,
+                gridCol: input.gridCol,
+                orientation: input.orientation,
+                status: input.status,
              })
+            .where(eq(parkingSpots.id, input.spotId));
+        return { success: true };
+    }),
+
+  /**
+   * Procedure for deleting a parking spot.
+   */
+  deleteParkingSpot: adminProcedure
+    .input(z.object({
+        spotId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+        await ctx.db
+            .delete(parkingSpots)
             .where(eq(parkingSpots.id, input.spotId));
         return { success: true };
     }),

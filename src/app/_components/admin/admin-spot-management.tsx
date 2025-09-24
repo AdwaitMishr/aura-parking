@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useMemo, memo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,203 +14,155 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ParkingGrid } from "@/app/_components/shared/parking-grid"
-import { mockParkingLot } from "@/lib/mock-data"
-import type { ParkingSpot } from "@/lib/types"
-import { Plus } from "lucide-react"
+import { api } from "@/trpc/react"
+import { Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 export function AdminSpotManagement() {
-  const [spots, setSpots] = useState<ParkingSpot[]>(mockParkingLot.spots)
-  const [editingSpot, setEditingSpot] = useState<ParkingSpot | null>(null)
+  const [editingSpot, setEditingSpot] = useState<any | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
-  // Form state
+  // Form state - using separate state to prevent re-renders on every keystroke
   const [formData, setFormData] = useState({
-    number: "",
-    status: "available" as ParkingSpot["status"],
-    orientation: "north" as ParkingSpot["orientation"],
-    x: 0,
-    y: 0,
+    spotNumber: "",
+    status: "AVAILABLE" as "AVAILABLE" | "OCCUPIED" | "RESERVED" | "UNDER_MAINTENANCE",
+    orientation: "N" as string,
+    gridRow: 0,
+    gridCol: 0,
   })
 
-  const handleSpotSelect = (spot: ParkingSpot) => {
+  // Fetch parking lot data (assuming parking lot ID 1 for now)
+  const { data: parkingLotData, refetch } = api.admin.getParkingLotForManagement.useQuery({
+    parkingLotId: 1
+  })
+
+  // Mutations
+  const createSpotMutation = api.admin.createParkingSpot.useMutation({
+    onSuccess: () => {
+      toast.success("Parking spot created successfully!")
+      refetch()
+      setIsAddDialogOpen(false)
+      resetForm()
+    },
+    onError: (error) => {
+      toast.error(`Failed to create spot: ${error.message}`)
+    }
+  })
+
+  const updateSpotMutation = api.admin.updateParkingSpot.useMutation({
+    onSuccess: () => {
+      toast.success("Parking spot updated successfully!")
+      refetch()
+      setIsEditDialogOpen(false)
+      setEditingSpot(null)
+      resetForm()
+    },
+    onError: (error) => {
+      toast.error(`Failed to update spot: ${error.message}`)
+    }
+  })
+
+  const deleteSpotMutation = api.admin.deleteParkingSpot.useMutation({
+    onSuccess: () => {
+      toast.success("Parking spot deleted successfully!")
+      refetch()
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete spot: ${error.message}`)
+    }
+  })
+
+  const spots = parkingLotData?.spots || []
+
+  const handleSpotSelect = useCallback((spot: any) => {
     setEditingSpot(spot)
     setFormData({
-      number: spot.number,
+      spotNumber: spot.spotNumber,
       status: spot.status,
       orientation: spot.orientation,
-      x: spot.x,
-      y: spot.y,
+      gridRow: spot.gridRow,
+      gridCol: spot.gridCol,
     })
     setIsEditDialogOpen(true)
-  }
+  }, [])
 
-  const handleSaveSpot = () => {
-    // Validate form data
-    if (!formData.number.trim()) {
-      alert("Please enter a spot number")
+  const handleSubmit = useCallback(() => {
+    if (!formData.spotNumber.trim()) {
+      toast.error("Please enter a spot number")
       return
     }
 
     // Check for duplicate spot numbers (excluding current spot when editing)
     const isDuplicate = spots.some(
-      (spot) => spot.number === formData.number && (!editingSpot || spot.id !== editingSpot.id),
+      (spot) => spot.spotNumber === formData.spotNumber && (!editingSpot || spot.id !== editingSpot.id),
     )
 
     if (isDuplicate) {
-      alert("A spot with this number already exists")
+      toast.error("A spot with this number already exists")
       return
     }
 
     // Check for duplicate positions (excluding current spot when editing)
     const isPositionTaken = spots.some(
-      (spot) => spot.x === formData.x && spot.y === formData.y && (!editingSpot || spot.id !== editingSpot.id),
+      (spot) => spot.gridRow === formData.gridRow && spot.gridCol === formData.gridCol && (!editingSpot || spot.id !== editingSpot.id),
     )
 
     if (isPositionTaken) {
-      alert("This position is already occupied by another spot")
+      toast.error("This position is already occupied by another spot")
       return
     }
 
     if (editingSpot) {
       // Update existing spot
-      setSpots(spots.map((spot) => (spot.id === editingSpot.id ? { ...spot, ...formData } : spot)))
+      updateSpotMutation.mutate({
+        spotId: editingSpot.id,
+        spotNumber: formData.spotNumber,
+        gridRow: formData.gridRow,
+        gridCol: formData.gridCol,
+        orientation: formData.orientation,
+        status: formData.status,
+      })
     } else {
-      // Add new spot
-      const newSpot: ParkingSpot = {
-        id: `spot-${Date.now()}`,
-        ...formData,
-      }
-      setSpots([...spots, newSpot])
+      // Create new spot
+      createSpotMutation.mutate({
+        parkingLotId: 1, // Assuming parking lot ID 1
+        spotNumber: formData.spotNumber,
+        gridRow: formData.gridRow,
+        gridCol: formData.gridCol,
+        orientation: formData.orientation,
+        status: formData.status,
+      })
     }
+  }, [formData, spots, editingSpot, updateSpotMutation, createSpotMutation])
 
-    setIsEditDialogOpen(false)
-    setIsAddDialogOpen(false)
-    setEditingSpot(null)
-    resetForm()
-  }
+  const handleDeleteSpot = useCallback((spotId: number) => {
+    if (confirm("Are you sure you want to delete this parking spot?")) {
+      deleteSpotMutation.mutate({ spotId })
+    }
+  }, [deleteSpotMutation])
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
-      number: "",
-      status: "available",
-      orientation: "north",
-      x: 0,
-      y: 0,
+      spotNumber: "",
+      status: "AVAILABLE",
+      orientation: "N",
+      gridRow: 0,
+      gridCol: 0,
     })
-  }
+  }, [])
 
-  const handleAddNewSpot = () => {
+  const handleAddNewSpot = useCallback(() => {
     resetForm()
     setEditingSpot(null)
     setIsAddDialogOpen(true)
-  }
+  }, [resetForm])
 
-  const SpotEditDialog = ({
-    isOpen,
-    onOpenChange,
-    title,
-  }: {
-    isOpen: boolean
-    onOpenChange: (open: boolean) => void
-    title: string
-  }) => (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="text-xl">{title}</DialogTitle>
-          <DialogDescription className="text-base">
-            {editingSpot ? "Edit the parking spot details below." : "Add a new parking spot to the lot."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-6 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="number" className="text-right font-medium">
-              Spot Number
-            </Label>
-            <Input
-              id="number"
-              value={formData.number}
-              onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-              className="col-span-3"
-              placeholder="e.g., A1, B2, C3"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="status" className="text-right font-medium">
-              Status
-            </Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value: ParkingSpot["status"]) => setFormData({ ...formData, status: value })}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="occupied">Occupied</SelectItem>
-                <SelectItem value="maintenance">Under Maintenance</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="orientation" className="text-right font-medium">
-              Orientation
-            </Label>
-            <Select
-              value={formData.orientation}
-              onValueChange={(value: ParkingSpot["orientation"]) => setFormData({ ...formData, orientation: value })}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="north">North</SelectItem>
-                <SelectItem value="south">South</SelectItem>
-                <SelectItem value="east">East</SelectItem>
-                <SelectItem value="west">West</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="x" className="text-right font-medium">
-              X Position
-            </Label>
-            <Input
-              id="x"
-              type="number"
-              value={formData.x}
-              onChange={(e) => setFormData({ ...formData, x: Number.parseInt(e.target.value) || 0 })}
-              className="col-span-3"
-              min="0"
-              max="10"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="y" className="text-right font-medium">
-              Y Position
-            </Label>
-            <Input
-              id="y"
-              type="number"
-              value={formData.y}
-              onChange={(e) => setFormData({ ...formData, y: Number.parseInt(e.target.value) || 0 })}
-              className="col-span-3"
-              min="0"
-              max="10"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSaveSpot}>{editingSpot ? "Save Changes" : "Add Spot"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
+  // Optimized form field handlers to prevent unnecessary re-renders
+  const updateFormField = useCallback((field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }, [])
+
 
   return (
     <div className="space-y-8">
@@ -243,19 +195,25 @@ export function AdminSpotManagement() {
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Available:</span>
                 <span className="font-bold text-xl text-emerald-600 dark:text-emerald-400">
-                  {spots.filter((s) => s.status === "available").length}
+                  {spots.filter((s) => s.status === "AVAILABLE").length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Occupied:</span>
                 <span className="font-bold text-xl text-muted-foreground">
-                  {spots.filter((s) => s.status === "occupied").length}
+                  {spots.filter((s) => s.status === "OCCUPIED").length}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Reserved:</span>
+                <span className="font-bold text-xl text-blue-600 dark:text-blue-400">
+                  {spots.filter((s) => s.status === "RESERVED").length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Maintenance:</span>
                 <span className="font-bold text-xl text-amber-600 dark:text-amber-400">
-                  {spots.filter((s) => s.status === "maintenance").length}
+                  {spots.filter((s) => s.status === "UNDER_MAINTENANCE").length}
                 </span>
               </div>
             </div>
@@ -286,10 +244,169 @@ export function AdminSpotManagement() {
       </div>
 
       {/* Edit Spot Dialog */}
-      <SpotEditDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} title="Edit Spot" />
+      <SpotEditDialog 
+        isOpen={isEditDialogOpen} 
+        onOpenChange={setIsEditDialogOpen} 
+        title="Edit Spot"
+        formData={formData}
+        editingSpot={editingSpot}
+        updateFormField={updateFormField}
+        handleSubmit={handleSubmit}
+        handleDeleteSpot={handleDeleteSpot}
+        isLoading={createSpotMutation.isPending || updateSpotMutation.isPending}
+      />
 
       {/* Add Spot Dialog */}
-      <SpotEditDialog isOpen={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} title="Add New Spot" />
+      <SpotEditDialog 
+        isOpen={isAddDialogOpen} 
+        onOpenChange={setIsAddDialogOpen} 
+        title="Add New Spot"
+        formData={formData}
+        editingSpot={editingSpot}
+        updateFormField={updateFormField}
+        handleSubmit={handleSubmit}
+        handleDeleteSpot={handleDeleteSpot}
+        isLoading={createSpotMutation.isPending || updateSpotMutation.isPending}
+      />
     </div>
   )
 }
+
+// Separate memoized dialog component to prevent re-renders
+const SpotEditDialog = memo(function SpotEditDialog({
+  isOpen,
+  onOpenChange,
+  title,
+  formData,
+  editingSpot,
+  updateFormField,
+  handleSubmit,
+  handleDeleteSpot,
+  isLoading,
+}: {
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  formData: {
+    spotNumber: string
+    status: "AVAILABLE" | "OCCUPIED" | "RESERVED" | "UNDER_MAINTENANCE"
+    orientation: string
+    gridRow: number
+    gridCol: number
+  }
+  editingSpot: any
+  updateFormField: (field: string, value: any) => void
+  handleSubmit: () => void
+  handleDeleteSpot: (spotId: number) => void
+  isLoading: boolean
+}) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="text-xl">{title}</DialogTitle>
+          <DialogDescription className="text-base">
+            {editingSpot ? "Edit the parking spot details below." : "Add a new parking spot to the lot."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-6 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="spotNumber" className="text-right font-medium">
+              Spot Number
+            </Label>
+            <Input
+              id="spotNumber"
+              value={formData.spotNumber}
+              onChange={(e) => updateFormField("spotNumber", e.target.value)}
+              className="col-span-3"
+              placeholder="e.g., A1, B2, C3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="status" className="text-right font-medium">
+              Status
+            </Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => updateFormField("status", value)}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="AVAILABLE">Available</SelectItem>
+                <SelectItem value="OCCUPIED">Occupied</SelectItem>
+                <SelectItem value="RESERVED">Reserved</SelectItem>
+                <SelectItem value="UNDER_MAINTENANCE">Under Maintenance</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="orientation" className="text-right font-medium">
+              Orientation
+            </Label>
+            <Select
+              value={formData.orientation}
+              onValueChange={(value) => updateFormField("orientation", value)}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="N">North</SelectItem>
+                <SelectItem value="S">South</SelectItem>
+                <SelectItem value="E">East</SelectItem>
+                <SelectItem value="W">West</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="gridRow" className="text-right font-medium">
+              Row Position
+            </Label>
+            <Input
+              id="gridRow"
+              type="number"
+              value={formData.gridRow}
+              onChange={(e) => updateFormField("gridRow", Number.parseInt(e.target.value) || 0)}
+              className="col-span-3"
+              min="0"
+              max="10"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="gridCol" className="text-right font-medium">
+              Column Position
+            </Label>
+            <Input
+              id="gridCol"
+              type="number"
+              value={formData.gridCol}
+              onChange={(e) => updateFormField("gridCol", Number.parseInt(e.target.value) || 0)}
+              className="col-span-3"
+              min="0"
+              max="10"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          {editingSpot && (
+            <Button variant="destructive" onClick={() => handleDeleteSpot(editingSpot.id)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          )}
+          <Button 
+            onClick={handleSubmit}
+            disabled={isLoading}
+          >
+            {isLoading ? "Saving..." : (editingSpot ? "Save Changes" : "Add Spot")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+})

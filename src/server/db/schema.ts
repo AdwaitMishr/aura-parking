@@ -3,7 +3,6 @@ import { pgTable, text, timestamp, boolean, pgTableCreator, pgEnum, serial, inte
 export const createTable = pgTableCreator((name) => `aura-parking_${name}`);
 
 
-export const userRoleEnum = pgEnum('user_role', ['USER', 'ADMIN']);
 export const spotStatusEnum = pgEnum('spot_status', ['AVAILABLE', 'OCCUPIED', 'RESERVED', 'UNDER_MAINTENANCE']); 
 
 export const parkingLots = createTable('parking_lots', {
@@ -43,7 +42,10 @@ export const user = pgTable("user", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
-  role: userRoleEnum("role").default('USER').notNull(),
+  role: text("role").default("USER"),
+  banned: boolean("banned").default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
@@ -65,6 +67,7 @@ export const session = pgTable("session", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  impersonatedBy: text("impersonated_by"),
 });
 
 export const account = pgTable("account", {

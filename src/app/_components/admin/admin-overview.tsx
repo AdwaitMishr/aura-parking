@@ -1,24 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { mockParkingLot, mockBookings } from "@/lib/mock-data"
+// TODO: Replace with tRPC queries to fetch data from backend
+// import { api } from "@/trpc/react"
 import { Car, Calendar, Clock, TrendingUp } from "lucide-react"
 
 export function AdminOverview() {
-  // Calculate KPIs
-  const totalSpots = mockParkingLot.spots.length
-  const occupiedSpots = mockParkingLot.spots.filter((spot) => spot.status === "occupied").length
-  const occupancyRate = Math.round((occupiedSpots / totalSpots) * 100)
+  // TODO: Replace with tRPC queries
+  // const { data: spots = [] } = api.spots.getAll.useQuery()
+  // const { data: bookings = [] } = api.bookings.getAll.useQuery()
+  
+  // Placeholder data - replace with actual backend data
+  const totalSpots = 0 // spots.length
+  const occupiedSpots = 0 // spots.filter(spot => spot.isOccupied).length
+  const occupancyRate = 0 // Math.round((occupiedSpots / totalSpots) * 100)
+  const todayBookings = 0 // bookings.filter(booking => isToday(booking.startTime)).length
 
-  const todayBookings = mockBookings.filter((booking) => {
-    const today = new Date()
-    const bookingDate = new Date(booking.startTime)
-    return bookingDate.toDateString() === today.toDateString()
-  }).length
-
-  const averageDuration =
-    mockBookings.reduce((total, booking) => {
-      const duration = (new Date(booking.endTime).getTime() - new Date(booking.startTime).getTime()) / (1000 * 60 * 60)
-      return total + duration
-    }, 0) / mockBookings.length
+  const averageDuration = 0 // Calculate from actual bookings data
 
   const kpis = [
     {
@@ -91,7 +87,7 @@ export function AdminOverview() {
                   <span className="font-medium">Available</span>
                 </div>
                 <span className="text-lg font-semibold">
-                  {mockParkingLot.spots.filter((s) => s.status === "available").length} spots
+                  0 spots
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -100,7 +96,7 @@ export function AdminOverview() {
                   <span className="font-medium">Occupied</span>
                 </div>
                 <span className="text-lg font-semibold">
-                  {mockParkingLot.spots.filter((s) => s.status === "occupied").length} spots
+                  0 spots
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -109,7 +105,7 @@ export function AdminOverview() {
                   <span className="font-medium">Maintenance</span>
                 </div>
                 <span className="text-lg font-semibold">
-                  {mockParkingLot.spots.filter((s) => s.status === "maintenance").length} spots
+                  0 spots
                 </span>
               </div>
             </div>

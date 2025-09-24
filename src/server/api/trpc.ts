@@ -125,11 +125,11 @@ const enforceUserIsAuthed = t.middleware(({ctx, next}) => {
 export const protectedProcedure = t.procedure.use(timingMiddleware).use(enforceUserIsAuthed);
 
 export const adminProcedure = protectedProcedure.use((opts) => {
-  if(!(opts.ctx.user.role !== "ADMIN")) {
+  if(opts.ctx.user.role !== "ADMIN") {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be an admin to perform this action."
     });
-    }
-    return opts.next(opts);
+  }
+  return opts.next(opts);
 })

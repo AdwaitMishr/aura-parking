@@ -4,22 +4,22 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Car } from "lucide-react"
-import type { ParkingSpot } from "@/lib/types"
+// TODO: Replace with proper types from backend schema
 import { cn } from "@/lib/utils"
 
 interface ParkingGridProps {
-  spots: ParkingSpot[]
+  spots: any[] // TODO: Replace with proper ParkingSpot type from backend
   selectedSpotId?: string
-  onSpotSelect?: (spot: ParkingSpot) => void
+  onSpotSelect?: (spot: any) => void
   mode?: "user" | "admin"
 }
 
 export function ParkingGrid({ spots, selectedSpotId, onSpotSelect, mode = "user" }: ParkingGridProps) {
   const [hoveredSpot, setHoveredSpot] = useState<string | null>(null)
 
-  // Calculate grid dimensions
-  const maxX = Math.max(...spots.map((spot) => spot.x))
-  const maxY = Math.max(...spots.map((spot) => spot.y))
+  // Calculate grid dimensions - map database fields correctly
+  const maxX = spots.length > 0 ? Math.max(...spots.map((spot) => spot.gridCol || 0)) : 0
+  const maxY = spots.length > 0 ? Math.max(...spots.map((spot) => spot.gridRow || 0)) : 0
 
   // Create a 2D array to represent the grid
   const grid = Array(maxY + 1)
@@ -28,20 +28,24 @@ export function ParkingGrid({ spots, selectedSpotId, onSpotSelect, mode = "user"
 
   // Place spots in the grid
   spots.forEach((spot) => {
-    grid[spot.y][spot.x] = spot
+    if (spot && spot.gridRow !== undefined && spot.gridCol !== undefined && grid[spot.gridRow]) {
+      grid[spot.gridRow]![spot.gridCol] = spot
+    }
   })
 
-  const getSpotColor = (spot: ParkingSpot) => {
+  const getSpotColor = (spot: any) => {
     if (selectedSpotId === spot.id) {
       return "bg-primary hover:bg-primary/90 text-primary-foreground border-primary shadow-md"
     }
 
     switch (spot.status) {
-      case "available":
+      case "AVAILABLE":
         return "bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white border-emerald-500 dark:border-emerald-600"
-      case "occupied":
+      case "OCCUPIED":
         return "bg-muted hover:bg-muted/80 text-muted-foreground border-muted"
-      case "maintenance":
+      case "RESERVED":
+        return "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600"
+      case "UNDER_MAINTENANCE":
         return "bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 text-white border-amber-500 dark:border-amber-600"
       default:
         return "bg-secondary hover:bg-secondary/80 text-secondary-foreground border-secondary"
@@ -50,27 +54,32 @@ export function ParkingGrid({ spots, selectedSpotId, onSpotSelect, mode = "user"
 
   const getRotationClass = (orientation: string) => {
     switch (orientation) {
-      case "north":
+      case "N":
         return "rotate-0"
-      case "south":
+      case "S":
         return "rotate-180"
-      case "east":
+      case "E":
         return "rotate-90"
-      case "west":
+      case "W":
         return "rotate-270"
       default:
         return "rotate-0"
     }
   }
 
-  const isSpotClickable = (spot: ParkingSpot) => {
+  const isSpotClickable = (spot: any) => {
     if (mode === "admin") return true
-    return spot.status === "available"
+    return spot.status === "AVAILABLE"
   }
 
-  const getTooltipContent = (spot: ParkingSpot) => {
-    const statusText = spot.status.charAt(0).toUpperCase() + spot.status.slice(1)
-    return `Spot ${spot.number} - ${statusText}`
+  const getSpotIcon = (spot: any) => {
+    const statusText = spot.status.charAt(0).toUpperCase() + spot.status.slice(1).toLowerCase()
+    return `Spot ${spot.spotNumber} - ${statusText}`
+  }
+
+  const getTooltipContent = (spot: any) => {
+    const statusText = spot.status.charAt(0).toUpperCase() + spot.status.slice(1).toLowerCase()
+    return `Spot ${spot.spotNumber} - ${statusText}`
   }
 
   return (
@@ -86,6 +95,10 @@ export function ParkingGrid({ spots, selectedSpotId, onSpotSelect, mode = "user"
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-muted rounded-sm"></div>
               <span className="text-muted-foreground">Occupied</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 dark:bg-blue-600 rounded-sm"></div>
+              <span className="text-muted-foreground">Reserved</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-amber-500 dark:bg-amber-600 rounded-sm"></div>
@@ -134,7 +147,7 @@ export function ParkingGrid({ spots, selectedSpotId, onSpotSelect, mode = "user"
                       disabled={!isSpotClickable(spot) && mode === "user"}
                     >
                       <Car className={cn("h-4 w-4", getRotationClass(spot.orientation))} />
-                      <span className="text-xs font-semibold">{spot.number}</span>
+                      <span className="text-xs font-semibold">{spot.spotNumber}</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>

@@ -22,6 +22,24 @@ export function FeaturesSection() {
              </p>
           </div>
           {/* ... Add the other two feature cards here ... */}
+          <div className="flex flex-col items-center rounded-lg bg-gray-900 p-8 text-center">
+             <div className="mb-4 rounded-full bg-cyan-500/10 p-4">
+               <Car className="h-8 w-8 text-cyan-400" />
+             </div>
+             <h3 className="text-xl font-semibold">Real-Time Availability</h3>
+             <p className="mt-2 text-gray-400">
+               Our system provides live updates on vacant spots, so you know where to go before you even arrive.
+             </p>
+          </div>
+          <div className="flex flex-col items-center rounded-lg bg-gray-900 p-8 text-center">
+             <div className="mb-4 rounded-full bg-cyan-500/10 p-4">
+               <ShieldCheck className="h-8 w-8 text-cyan-400" />
+             </div>
+             <h3 className="text-xl font-semibold">Real-Time Availability</h3>
+             <p className="mt-2 text-gray-400">
+               Our system provides live updates on vacant spots, so you know where to go before you even arrive.
+             </p>
+          </div>
         </div>
       </div>
     </section>

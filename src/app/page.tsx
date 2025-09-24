@@ -1,4 +1,3 @@
-// src/app/page.tsx
 import { Header } from "@/app/_components/landing/header";
 import { HeroSection } from "@/app/_components/landing/hero-section";
 import { FeaturesSection } from "@/app/_components/landing/feature-section";

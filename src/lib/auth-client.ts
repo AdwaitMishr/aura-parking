@@ -1,13 +1,13 @@
 import { createAuthClient } from "better-auth/react";
 import { customSessionClient } from "better-auth/client/plugins";
-import { auth } from "./auth";
+import { adminClient } from "better-auth/client/plugins";
+
 export const authClient = createAuthClient({
-    baseURL: process.env.BETTER_AUTH_URL as string,
-    plugins: [customSessionClient<typeof auth>()]
+    baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+    plugins: [
+        customSessionClient(),
+        adminClient()
+    ]
 });
-const signIn = async () => {
-    const data = await authClient.signIn.social({
-        provider: "google"
-    })
-}
+
 export const { useSession, signOut } = authClient;

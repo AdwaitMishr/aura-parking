@@ -21,6 +21,18 @@ export function Providers({ children }: { children: ReactNode }) {
             social = {{
                 providers: ['google']
             }}
+            additionalFields={{
+                adminKey: {
+                    label: "Admin Key (Optional)",
+                    placeholder: "Enter admin key for admin access",
+                    description: "Leave empty for regular user account. Enter 'meow' for admin access.",
+                    required: false,
+                    type: "string",
+                },
+            }}
+            signUp={{
+                fields: ["adminKey"],
+            }}
             Link={Link}
         >
             {children}

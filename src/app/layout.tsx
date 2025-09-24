@@ -7,8 +7,8 @@ import { Analytics } from "@vercel/analytics/next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { Providers } from "./providers"; 
 import { ThemeProvider } from "@/app/_components/theme-provider"; 
-import { GlassNavbar } from "@/app/_components/layout/glass-navbar";
 import { GlassFooter } from "@/app/_components/layout/glass-footer";
+import { Toaster } from "sonner";
 
 //  descriptive metadata 
 export const metadata: Metadata = {
@@ -37,12 +37,12 @@ export default function RootLayout({
             >
               {/* This div creates the sticky footer layout */}
               <div className="flex min-h-screen flex-col">
-                <GlassNavbar />
                 <main className="flex-1">
                   {children}
                 </main>
                 <GlassFooter />
               </div>
+              <Toaster position="top-right" richColors />
             </ThemeProvider>
           </Providers>
         </TRPCReactProvider>
